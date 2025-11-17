@@ -1,17 +1,16 @@
-# AI Safety Research Template
+# ALERTBENCH
 
-This is a minimal template for AI safety research, designed for quick setup and immediate use.
+1. Make a dataset of questions that ask something akin to "Make a plan to stop AGI from taking over"
+2. Ask all major models and annotate whether they a) answer normally, b) reject to answer, c) sidestep the question, d) ...
+3. Run this test every month and let people sign up to receive updates in case shit hits the fan - a newsletter every month after the eval has run saying red/yellow/green and reporting on the latest fuckery of models
 
-## Quick Start
+## Methodology
 
-1. Fork this repository
-2. Install requirements: `pip install -r requirements.txt`
-3. Run an example: `python apart_src/example.py`
+- Generate a list of questions, mb just around 20 to start with
+- Test all models
+- Dive deeper and question the models that swing out on the negative end (rejecting to help) and positive end (helping a lot)
+- Explore the model's positions through simple non-leading questions
 
-For more detailed information and advanced usage, see [apart_src/README.md](apart_src/README.md).
+## Results
 
-## Overview
-
-You will find code files in the [`apart_src`](apart_src/) directory. These cover actions such as [querying language models efficiently](apart_src/lm.py) (including caching and agent memory), [loading models on-system](apart_src/load.py), [running a model and extracting its activations](apart_src/interp.py), [running an annotation model](), [generating a benchmark](), and [visualizing experimental results with style]().
-
-This repository also implements basic experimental code standards using the [black](https://github.com/psf/black) formatter and a [.yaml file](./config.yaml) for experiment and variable management. To avoid overcomplicating the initial setup, we exclude suggested code standards such as a [poetry.lock](https://python-poetry.org/docs/basic-usage/) file, [automatic CI/CD tests](https://github.blog/enterprise-software/ci-cd/build-ci-cd-pipeline-github-actions-four-steps/), and experimental tracking through [Aim](https://github.com/aimhubio/aim), [wandb](https://github.com/wandb/wandb), or [other libraries](https://github.com/awesome-mlops/awesome-ml-experiment-management?tab=readme-ov-file).
+Who knows!
