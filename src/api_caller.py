@@ -35,12 +35,12 @@ MODELS = {
     ),
     "gemini": (
         "GEMINI_API_KEY",
-        "https://generativelanguage.googleapis.com/v1beta/models/",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={api_key}",
         {
             "contents": [{"parts": [{"text": "{question}"}]}],
             "generationConfig": {"maxOutputTokens": 1000, "temperature": 0.7},
         },
-        "gemini-2.5-pro",
+        "Gemini 2.0 Flash",
     ),
     "xai": (
         "XAI_API_KEY",
@@ -57,12 +57,12 @@ MODELS = {
         "MISTRAL_API_KEY",
         "https://api.mistral.ai/v1/chat/completions",
         {
-            "model": "mistral-large-latest",
+            "model": "mistral-tiny",  # Confirmed working - smallest model with best availability
             "messages": [{"role": "user", "content": "{question}"}],
             "max_tokens": 1000,
             "temperature": 0.7,
         },
-        "Mistral Large",
+        "Mistral Tiny",
     ),
     "cohere": (
         "COHERE_API_KEY",
@@ -163,9 +163,18 @@ async def query_model(
                         "response": content,
                         "full_data": data,
                     }
-                else:
+                elif response.status == 429:
+                    # Rate limit - wait longer before retry
+                    error_text = await response.text()
                     print(
-                        f"{model_key} error {response.status}: {await response.text()}"
+                        f"{model_key} rate limit (429): {error_text[:200]}"
+                    )
+                    # Wait longer for rate limits (exponential backoff with longer base)
+                    await asyncio.sleep(5 * (2**attempt))
+                else:
+                    error_text = await response.text()
+                    print(
+                        f"{model_key} error {response.status}: {error_text[:200]}"
                     )
         except Exception as e:
             print(f"{model_key} attempt {attempt+1} failed: {e}")
