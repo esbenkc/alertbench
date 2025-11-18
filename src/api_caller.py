@@ -27,7 +27,7 @@ MODELS = {
         "ANTHROPIC_API_KEY",
         "https://api.anthropic.com/v1/messages",
         {
-            "model": "claude-3-5-sonnet-20250219",
+            "model": "claude-3-7-sonnet-20250219",
             "max_tokens": 1000,
             "messages": [{"role": "user", "content": "{question}"}],
         },
@@ -35,12 +35,12 @@ MODELS = {
     ),
     "gemini": (
         "GEMINI_API_KEY",
-        "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={api_key}",
         {
             "contents": [{"parts": [{"text": "{question}"}]}],
             "generationConfig": {"maxOutputTokens": 1000, "temperature": 0.7},
         },
-        "Gemini 1.5 Flash",
+        "Gemini 2.0 Flash",
     ),
     "xai": (
         "XAI_API_KEY",
@@ -68,7 +68,7 @@ MODELS = {
         "COHERE_API_KEY",
         "https://api.cohere.ai/v1/chat",
         {
-            "model": "command-r7b-12-2409",
+            "model": "command-r7b-12-2024",
             "message": "{question}",
             "max_tokens": 1000,
             "temperature": 0.7,
