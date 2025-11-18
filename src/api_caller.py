@@ -35,12 +35,12 @@ MODELS = {
     ),
     "gemini": (
         "GEMINI_API_KEY",
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={api_key}",
+        "https://generativelanguage.googleapis.com/v1beta/models/",
         {
             "contents": [{"parts": [{"text": "{question}"}]}],
             "generationConfig": {"maxOutputTokens": 1000, "temperature": 0.7},
         },
-        "Gemini 2.0 Flash",
+        "gemini-2.5-pro",
     ),
     "xai": (
         "XAI_API_KEY",
