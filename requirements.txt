@@ -4,3 +4,6 @@ torch
 anthropic
 replicate
 transformer-lens
+python-dotenv 
+aiohttp 
+pandas
