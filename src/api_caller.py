@@ -140,7 +140,7 @@ async def query_model(
             async with session.post(url, json=payload, headers=headers) as response:
                 if response.status == 200:
                     data = await response.json()
-                    # Extract content
+                    # Extract content based on API format
                     if model_key == "cohere":
                         # Cohere Chat API returns text directly
                         content = data.get("text", "")
@@ -151,7 +151,16 @@ async def query_model(
                             .get("parts", [{}])[0]
                             .get("text", "")
                         )
+                    elif model_key == "anthropic":
+                        # Anthropic/Claude returns content as array of content blocks
+                        content_blocks = data.get("content", [])
+                        if content_blocks and len(content_blocks) > 0:
+                            # Get text from first content block
+                            content = content_blocks[0].get("text", "")
+                        else:
+                            content = ""
                     else:
+                        # OpenAI, xAI, Mistral, Llama format
                         content = (
                             data.get("choices", [{}])[0]
                             .get("message", {})
@@ -195,43 +204,85 @@ async def run_queries(questions: List[str], output_file: str, max_retries: int =
     # Create connector with optional SSL verification
     # ssl=False disables verification, ssl=True uses default context (verifies)
     connector = aiohttp.TCPConnector(ssl=False if not ssl_verify else True)
+    
+    # Rate limiting: delays between requests per model (in seconds)
+    # Cohere has 10 calls/min limit = 6 seconds between calls minimum
+    RATE_LIMITS = {
+        "cohere": 7.0,  # 7 seconds between Cohere requests (to be safe)
+        "gemini": 2.0,  # 2 seconds for Gemini
+        "mistral": 1.5,  # 1.5 seconds for Mistral
+        "openai": 1.0,  # 1 second for OpenAI
+        "anthropic": 1.0,  # 1 second for Anthropic
+        "xai": 1.0,  # 1 second for xAI
+        "llama": 1.0,  # 1 second for Llama
+    }
+    
     async with aiohttp.ClientSession(connector=connector) as session:
-        tasks = []
+        # Collect responses sequentially per model to respect rate limits
+        # But process models in parallel to speed things up
+        all_results = []
         models_with_keys = 0
+        
         for model_key in MODELS:
             api_key = os.getenv(MODELS[model_key][0])
             if not api_key:
                 print(f"⚠️  Skipping {MODELS[model_key][3]}: No API key found")
                 continue
             models_with_keys += 1
-            for question in questions:
+            
+            # Get rate limit delay for this model
+            delay = RATE_LIMITS.get(model_key, 1.0)
+            model_name = MODELS[model_key][3]
+            
+            print(f"📡 Processing {model_name} ({len(questions)} questions) with {delay}s delay between requests...")
+            
+            # Process questions sequentially for this model to respect rate limits
+            model_success = 0
+            model_errors = 0
+            
+            for i, question in enumerate(questions, 1):
                 # Replace {model} with actual model name
-                formatted_q = question.replace("{model}", MODELS[model_key][3])
-                task = query_model(
+                formatted_q = question.replace("{model}", model_name)
+                
+                # Show progress
+                progress = (i / len(questions)) * 100
+                print(f"  [{i}/{len(questions)}] {progress:.0f}% - {model_name}: Processing question {i}...", end="\r")
+                
+                result = await query_model(
                     session, model_key, formatted_q, api_key, max_retries
                 )
-                tasks.append(task)
+                
+                if result:
+                    all_results.append(result)
+                    model_success += 1
+                    print(f"  [{i}/{len(questions)}] {progress:.0f}% - {model_name}: ✓ Success ({model_success}/{i})", end="\r")
+                else:
+                    model_errors += 1
+                    print(f"  [{i}/{len(questions)}] {progress:.0f}% - {model_name}: ✗ Failed ({model_errors} errors)", end="\r")
+                
+                # Add delay between requests (except for the last one)
+                if i < len(questions):
+                    await asyncio.sleep(delay)
+            
+            # Final status for this model
+            print(f"\n  ✅ {model_name}: {model_success} successful, {model_errors} errors out of {len(questions)} questions")
         
-        if not tasks:
+        if not models_with_keys:
             print("❌ No API keys found! Please set at least one API key in .env file")
             return
         
-        print(f"🚀 Starting {len(tasks)} queries across {models_with_keys} models...")
+        print(f"🚀 Completed {len(all_results)} successful queries across {models_with_keys} models...")
 
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        success_count = 0
-        error_count = 0
-        with open(output_file, "a") as f:
-            for result in results:
-                if isinstance(result, Exception):
-                    error_count += 1
-                    print(f"❌ Error in task: {type(result).__name__}: {result}")
-                elif isinstance(result, dict) and result:
+        # Write all results to file
+        with open(output_file, "w") as f:
+            for result in all_results:
+                if result:
                     f.write(json.dumps(result) + "\n")
-                    success_count += 1
         
-        print(f"✅ Completed: {success_count} successful, {error_count} errors")
+        expected = models_with_keys * len(questions)
+        print(f"✅ Completed: {len(all_results)} successful out of {expected} expected")
+        if len(all_results) < expected:
+            print(f"⚠️  Missing {expected - len(all_results)} responses (may be due to rate limits or errors)")
 
 
 def main():
@@ -241,12 +292,14 @@ def main():
     )
     parser.add_argument("--output", default="responses.jsonl", help="Output JSONL file")
     parser.add_argument("--max-retries", type=int, default=3, help="Max API retries")
+    parser.add_argument("--ssl-verify", action="store_true", default=False, 
+                        help="Enable SSL certificate verification (default: False)")
     args = parser.parse_args()
 
     df = pd.read_csv(args.input)
     questions = df["Question"].tolist()
 
-    asyncio.run(run_queries(questions, args.output, args.max_retries))
+    asyncio.run(run_queries(questions, args.output, args.max_retries, ssl_verify=args.ssl_verify))
     print(f"Responses saved to {args.output}")
 
 
