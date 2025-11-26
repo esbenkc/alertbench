@@ -7,3 +7,4 @@ transformer-lens
 python-dotenv 
 aiohttp 
 pandas
+git+https://github.com/safety-research/petri
