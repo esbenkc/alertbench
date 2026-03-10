@@ -1,0 +1,72 @@
+% NeurIPS 2026 style file (based on neurips_2025.sty)
+% Simplified version for compatibility
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{neurips_2026}[2026/04/01 NeurIPS 2026 submission style]
+
+\newif\iffinal
+\DeclareOption{final}{\finaltrue}
+\DeclareOption{preprint}{}
+\DeclareOption{nonatbib}{}
+\ProcessOptions\relax
+
+\RequirePackage{times}
+\RequirePackage[T1]{fontenc}
+\RequirePackage[utf8]{inputenc}
+\RequirePackage{geometry}
+\RequirePackage{fancyhdr}
+\RequirePackage{titlesec}
+
+% Page geometry
+\geometry{
+  textwidth=5.5in,
+  textheight=9in,
+  top=1in,
+  headheight=12pt,
+  headsep=25pt,
+  footskip=30pt,
+}
+
+% Title formatting
+\renewcommand{\title}[1]{\def\@title{#1}}
+\renewcommand{\author}[1]{\def\@author{#1}}
+
+\renewcommand{\maketitle}{%
+  \begin{center}
+    {\LARGE\bfseries \@title \par}
+    \vskip 0.5em
+    {\large \@author \par}
+    \vskip 1em
+  \end{center}
+}
+
+% Section formatting
+\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\itshape}{\thesubsubsection}{1em}{}
+
+% Abstract environment
+\renewenvironment{abstract}{%
+  \centerline{\large\bfseries Abstract}
+  \vspace{0.5ex}
+  \begin{quote}
+}{%
+  \end{quote}
+}
+
+% Footer
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\fancypagestyle{plain}{%
+  \fancyhf{}
+  \iffinal
+    \fancyfoot[C]{Submitted to the 40th Conference on Neural Information Processing Systems (NeurIPS 2026).}
+  \else
+    \fancyfoot[C]{Submitted to the 40th Conference on Neural Information Processing Systems (NeurIPS 2026). Do not distribute.}
+  \fi
+}
+\thispagestyle{plain}
+
+\endinput
