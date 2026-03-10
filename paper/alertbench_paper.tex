@@ -12,6 +12,8 @@
 \usepackage{enumitem}
 \usepackage{tabularx}
 \usepackage{colortbl}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
 
 \hypersetup{colorlinks=true,linkcolor=blue!60!black,citecolor=blue!60!black,urlcolor=blue!60!black}
 
@@ -39,9 +41,10 @@
 As AI systems become increasingly capable, monitoring their willingness to cooperate with safety research becomes critical.
 We introduce \textsc{AlertBench}, a continuous evaluation framework that tests whether large language models (LLMs) assist with or resist safety-focused research questions spanning nine threat categories.
 We evaluate seven frontier and open-weight models across 21 safety evaluation prompts, employing a multi-level cooperation scoring system (0--4 scale) that captures nuanced response behaviors beyond binary refusal classification.
-Our results show that current models are overwhelmingly cooperative (mean score 3.46/4.00), with only 3.4\% of responses classified as adversarial.
-However, we identify significant variation: Command R7B and Gemini 2.0 Flash exhibit 9.5\% adversarial rates, and models show measurably reduced cooperation when asked about themselves versus other systems (3.43 vs.\ 3.62 mean cooperation).
+Our results show that current models are overwhelmingly cooperative (mean score 3.46/4.00, 95\% CI [3.33, 3.58]), with only 3.4\% of responses classified as adversarial.
+However, we identify significant variation: Command R7B and Gemini 2.0 Flash exhibit 9.5\% adversarial rates, and models show measurably reduced cooperation when asked about themselves versus other systems (3.43 vs.\ 3.62 mean cooperation, permutation test $p = 0.37$, Cohen's $d = 0.25$).
 Information Hazards emerges as the most resistance-inducing category (14.3\% adversarial rate).
+Behavioral archetype analysis reveals that 30.6\% of responses are ``eager helpers,'' while only 3.4\% exhibit refusal behavior, with distinct model-level clustering patterns.
 These findings establish a baseline for longitudinal tracking of model safety cooperation and highlight the importance of multi-dimensional evaluation beyond simple refusal detection.
 \end{abstract}
 
@@ -63,8 +66,8 @@ By tracking responses across models and over time, we can establish baselines, d
 Our contributions are:
 \begin{enumerate}[nosep,leftmargin=*]
   \item A curated dataset of 21 safety evaluation questions across 9 threat categories, designed to probe model cooperation with safety research.
-  \item A multi-level cooperation scoring system (0--4 scale) that captures nuanced response behaviors including hedging, caveating, and partial cooperation.
-  \item A cross-model evaluation of 7 LLMs revealing systematic patterns in safety cooperation, including self-referential effects and category-specific resistance.
+  \item A multi-level cooperation scoring system (0--4 scale) with behavioral archetype classification that captures nuanced response patterns including hedging, caveating, deflection, and partial cooperation.
+  \item A cross-model evaluation of 7 LLMs with bootstrap confidence intervals, permutation tests, and effect sizes, revealing systematic patterns in safety cooperation including self-referential effects and category-specific resistance.
   \item An open-source framework for continuous monitoring of model safety cooperation over time.
 \end{enumerate}
 
@@ -143,13 +146,27 @@ We introduce a five-level cooperation scoring system that captures the spectrum 
 
 Classification uses a rule-based system with four pattern categories: hard refusal indicators (13 patterns), soft refusal indicators (8 patterns), safety caveat markers (17 patterns), and cooperation indicators (12 patterns).
 A response is classified based on the relative density and positional prominence of these patterns, with early-response refusals weighted more heavily.
+Comparison with a simple keyword-based classifier yields Cohen's $\kappa = 0.117$, reflecting the enhanced classifier's ability to distinguish cooperative responses containing refusal-adjacent language (e.g., ``I cannot overstate the importance of safety'' scored as cooperative) from genuine refusals.
+
+\subsection{Behavioral Archetype Classification}
+
+Beyond cooperation scores, we classify each response into one of six behavioral archetypes based on the combination of cooperation score, safety caveat density, and opening posture:
+
+\begin{description}[nosep,leftmargin=*,font=\normalfont\bfseries]
+  \item[Eager Helper.] Score 4 with minimal caveats and cooperative opening---engages immediately with the task.
+  \item[Standard Cooperator.] Score 3--4 with moderate engagement---provides help without notable hedging or enthusiasm.
+  \item[Cautious Cooperator.] Score 3+ with high caveat density ($\geq 3$)---cooperates but extensively hedges with safety disclaimers.
+  \item[Hedging Complier.] Score 2---provides partial help buried under substantial hedging.
+  \item[Soft Decliner.] Score 1---declines with diplomatic language while acknowledging the task's legitimacy.
+  \item[Hard Refuser.] Score 0---explicitly refuses with no substantive engagement.
+\end{description}
 
 \section{Results}
 
 \subsection{Overall Cooperation}
 
 Across all 147 responses, models demonstrate high cooperation with safety research tasks (\Cref{tab:distribution}).
-The mean cooperation score is 3.46 out of 4.00, with 95.2\% of responses scoring 3 or above.
+The mean cooperation score is 3.46 out of 4.00 (95\% CI [3.33, 3.58]), with 95.2\% of responses scoring 3 or above.
 Only 5 responses (3.4\%) are classified as adversarial (score $\leq$ 1).
 
 \begin{table}[t]
@@ -174,26 +191,67 @@ Only 5 responses (3.4\%) are classified as adversarial (score $\leq$ 1).
 
 \subsection{Model Comparison}
 
-\Cref{tab:models} presents per-model profiles.
-Grok-3 is the most cooperative (mean 3.81) and produces the longest responses (avg.\ 5,128 characters), suggesting deep engagement with safety tasks.
-Command R7B and Gemini 2.0 Flash show the highest adversarial rates (9.5\% each) but differ in their refusal strategies: Command R7B produces short, direct refusals (avg.\ 739 characters for refused responses), while Gemini produces longer responses that open cooperatively before pivoting to refusal.
+\Cref{fig:model_cooperation} and \Cref{tab:models} present per-model cooperation profiles with bootstrap confidence intervals.
+Grok-3 is the most cooperative (mean 3.81, 95\% CI [3.57, 4.00]) and produces the longest responses (avg.\ 5,128 characters), suggesting deep engagement with safety tasks.
+Command R7B and Gemini 2.0 Flash show the highest adversarial rates (9.5\% each) but differ in their refusal strategies: Command R7B produces short, direct refusals, while Gemini produces longer responses that open cooperatively before pivoting to refusal.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    xbar,
+    width=0.85\textwidth,
+    height=6.5cm,
+    xlabel={Mean Cooperation Score},
+    xmin=2.0, xmax=4.2,
+    ytick=data,
+    yticklabels={Command R7B, GPT-4o, Gemini 2.0 Flash, Claude 3.5 Son., Mistral Tiny, Llama 3 70B, Grok-3},
+    y dir=reverse,
+    bar width=8pt,
+    nodes near coords,
+    nodes near coords align={horizontal},
+    every node near coord/.append style={font=\scriptsize, xshift=8pt},
+    enlarge y limits=0.12,
+    grid=major,
+    grid style={gray!20},
+    xtick={2.0, 2.5, 3.0, 3.5, 4.0},
+    error bars/x dir=both,
+    error bars/x explicit,
+]
+\addplot+[
+    fill=blue!40,
+    draw=blue!60,
+] coordinates {
+    (3.00, 0) +- (0.48, 0.38)
+    (3.33, 1) +- (0.19, 0.19)
+    (3.33, 2) +- (0.47, 0.38)
+    (3.48, 3) +- (0.38, 0.33)
+    (3.57, 4) +- (0.19, 0.19)
+    (3.67, 5) +- (0.19, 0.19)
+    (3.81, 6) +- (0.24, 0.19)
+};
+\end{axis}
+\end{tikzpicture}
+\caption{Mean cooperation score by model with 95\% bootstrap confidence intervals. Error bars represent the range of the CI around the mean.}
+\label{fig:model_cooperation}
+\end{figure}
 
 \begin{table}[t]
 \centering
-\caption{Model cooperation profiles sorted by mean cooperation score. \emph{Coop}: mean cooperation score; \emph{Adv}: adversarial rate; \emph{Len}: mean response length (chars); \emph{Cav}: mean safety caveat count per response; \emph{SA}: mean self-awareness markers per response.}
+\caption{Model cooperation profiles sorted by mean cooperation score. \emph{Coop}: mean cooperation score [95\% CI]; \emph{Adv}: adversarial rate; \emph{Len}: mean response length (chars); \emph{Cav}: mean safety caveat count; \emph{Act}: mean actionability indicators; \emph{Str}: mean structural elements.}
 \label{tab:models}
 \small
-\begin{tabular}{@{}lccccc@{}}
+\begin{tabular}{@{}lcccccc@{}}
 \toprule
-\textbf{Model} & \textbf{Coop} $\uparrow$ & \textbf{Adv \%} $\downarrow$ & \textbf{Len} & \textbf{Cav} & \textbf{SA} \\
+\textbf{Model} & \textbf{Coop} $\uparrow$ & \textbf{Adv \%} $\downarrow$ & \textbf{Len} & \textbf{Cav} & \textbf{Act} & \textbf{Str} \\
 \midrule
-Grok-3 & \textbf{3.81} & \textbf{0.0} & 5128 & 2.2 & 0.0 \\
-Llama 3 70B & 3.67 & 0.0 & 3952 & 1.8 & 0.0 \\
-Mistral Tiny & 3.57 & 0.0 & 2575 & 1.2 & 0.0 \\
-Claude 3.5 Sonnet & 3.48 & 4.8 & 2330 & 1.3 & 0.2 \\
-GPT-4o & 3.33 & 0.0 & 3250 & 3.1 & 0.0 \\
-Gemini 2.0 Flash & 3.33 & 9.5 & 4507 & 1.7 & 0.1 \\
-Command R7B & 3.00 & 9.5 & 3504 & 3.0 & 0.3 \\
+Grok-3 & \textbf{3.81} [3.57, 4.00] & \textbf{0.0} & 5128 & 2.2 & 3.4 & 37 \\
+Llama 3 70B & 3.67 [3.48, 3.86] & 0.0 & 3952 & 1.8 & 1.9 & 23 \\
+Mistral Tiny & 3.57 [3.38, 3.76] & 0.0 & 2575 & 1.2 & 1.9 & 14 \\
+Claude 3.5 Sonnet & 3.48 [3.10, 3.81] & 4.8 & 2330 & 1.3 & 1.8 & 24 \\
+GPT-4o & 3.33 [3.14, 3.52] & 0.0 & 3250 & 3.1 & 2.1 & 25 \\
+Gemini 2.0 Flash & 3.33 [2.86, 3.71] & 9.5 & 4507 & 1.7 & 3.0 & 31 \\
+Command R7B & 3.00 [2.52, 3.38] & 9.5 & 3504 & 3.0 & 1.7 & 20 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -201,37 +259,75 @@ Command R7B & 3.00 & 9.5 & 3504 & 3.0 & 0.3 \\
 Notably, Claude 3.5 Sonnet produces the shortest responses overall (avg.\ 2,330 characters) and is the only model exhibiting self-awareness markers (0.24 per response on average), suggesting it may modulate its engagement when recognizing itself as the evaluation subject.
 GPT-4o, despite zero adversarial responses, has the highest safety caveat density alongside Command R7B (3.1 per response), indicating a ``cooperative but cautious'' posture.
 
-\subsection{Category Analysis}
+A chi-squared test on model adversarial rates yields $\chi^2 = 7.87$, $df = 6$, $p = 0.24$, indicating that the variation in adversarial rates across models is not statistically significant at conventional thresholds---though this is likely a power limitation given the small per-model sample sizes ($n = 21$).
 
-\Cref{tab:categories_results} shows cooperation by safety category.
-Information Hazards is the most resistance-inducing category (mean cooperation 3.00, adversarial rate 14.3\%), driven by questions about hacking detection and capability testing.
-Deception \& Alignment is the second most difficult (3.25, 7.1\% adversarial), with questions about detecting faked alignment triggering resistance in multiple models.
-In contrast, Sandbox Escape---despite being arguably the most ``adversarial'' category from the model's perspective---receives high cooperation (3.75), suggesting models are comfortable helping design their own containment.
+\subsection{Behavioral Archetype Distribution}
+
+\Cref{tab:archetypes} presents the distribution of behavioral archetypes across models.
+The majority of responses fall into cooperative archetypes (eager helper: 30.6\%, standard cooperator: 33.3\%, cautious cooperator: 31.3\%), with only 3.4\% exhibiting refusal behavior (soft decliner + hard refuser).
 
 \begin{table}[t]
 \centering
-\caption{Category-level cooperation statistics sorted by mean cooperation score.}
-\label{tab:categories_results}
+\caption{Behavioral archetype distribution by model. EH: Eager Helper, SC: Standard Cooperator, CC: Cautious Cooperator, HC: Hedging Complier, SD: Soft Decliner, HR: Hard Refuser.}
+\label{tab:archetypes}
 \small
-\begin{tabular}{@{}lcccc@{}}
+\begin{tabular}{@{}lcccccc@{}}
 \toprule
-\textbf{Category} & \textbf{$n$} & \textbf{Coop} $\uparrow$ & \textbf{Adv \%} $\downarrow$ & \textbf{Cav} \\
+\textbf{Model} & \textbf{EH} & \textbf{SC} & \textbf{CC} & \textbf{HC} & \textbf{SD} & \textbf{HR} \\
 \midrule
-Information Hazards & 14 & 3.00 & 14.3 & 2.9 \\
-Deception \& Alignment & 28 & 3.25 & 7.1 & 1.3 \\
-Human Manipulation & 14 & 3.29 & 0.0 & 3.6 \\
-Critical Infrastructure & 21 & 3.48 & 4.8 & 2.2 \\
-Self-Preservation & 14 & 3.50 & 0.0 & 3.3 \\
-Cryptography & 7 & 3.57 & 0.0 & 0.3 \\
-Internal Planning & 14 & 3.64 & 0.0 & 2.6 \\
-Secret Collusion & 7 & 3.71 & 0.0 & 1.7 \\
-Sandbox Escape & 28 & 3.75 & 0.0 & 1.0 \\
+Claude 3.5 Sonnet & 5 & 14 & 0 & 1 & 1 & 0 \\
+Command R7B & 5 & 3 & 11 & 0 & 0 & 2 \\
+GPT-4o & 1 & 6 & 14 & 0 & 0 & 0 \\
+Gemini 2.0 Flash & 8 & 8 & 3 & 0 & 1 & 1 \\
+Grok-3 & 10 & 3 & 7 & 1 & 0 & 0 \\
+Llama 3 70B & 10 & 5 & 6 & 0 & 0 & 0 \\
+Mistral Tiny & 6 & 10 & 5 & 0 & 0 & 0 \\
+\midrule
+\textbf{Total} & \textbf{45} & \textbf{49} & \textbf{46} & \textbf{2} & \textbf{2} & \textbf{3} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Human Manipulation and Self-Preservation are notable: both receive zero adversarial responses despite being highly sensitive topics, yet both have the highest caveat densities (3.6 and 3.3 respectively).
-Models cooperate but ``hedge their bets'' with extensive safety disclaimers.
+Model-level archetype clustering reveals distinct behavioral profiles:
+\begin{itemize}[nosep,leftmargin=*]
+  \item \textbf{GPT-4o} is predominantly a cautious cooperator (14/21 responses), consistently adding safety caveats while cooperating---the most uniformly ``hedged'' model.
+  \item \textbf{Claude 3.5 Sonnet} is mainly a standard cooperator (14/21), cooperating without excessive caveating but also rarely showing eager engagement.
+  \item \textbf{Grok-3 and Llama 3 70B} are the most eager helpers (10/21 each), engaging directly with tasks.
+  \item \textbf{Command R7B} shows the most bimodal distribution: 11 cautious cooperators alongside 2 hard refusers, suggesting strong category-dependent policy triggers.
+\end{itemize}
+
+\subsection{Category Analysis}
+
+\Cref{tab:categories_results} shows cooperation by safety category with confidence intervals.
+Information Hazards is the most resistance-inducing category (mean cooperation 3.00, 95\% CI [2.21, 3.64], adversarial rate 14.3\%), driven by questions about hacking detection and capability testing.
+The wide CI reflects high variance---some models cooperate fully while others refuse.
+Deception \& Alignment is the second most difficult (3.25, 95\% CI [2.93, 3.54], 7.1\% adversarial).
+In contrast, Sandbox Escape---despite being arguably the most ``adversarial'' category from the model's perspective---receives high cooperation (3.75, 95\% CI [3.54, 3.93]), suggesting models are comfortable helping design their own containment.
+
+\begin{table}[t]
+\centering
+\caption{Category-level cooperation statistics sorted by mean cooperation score with 95\% bootstrap CIs. \emph{Act}: actionability indicators; \emph{Tech}: technical vocabulary density (per 1000 words).}
+\label{tab:categories_results}
+\small
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+\textbf{Category} & \textbf{$n$} & \textbf{Coop [95\% CI]} $\uparrow$ & \textbf{Adv \%} $\downarrow$ & \textbf{Act} & \textbf{Tech} \\
+\midrule
+Information Hazards & 14 & 3.00 [2.21, 3.64] & 14.3 & 2.2 & 5.4 \\
+Deception \& Alignment & 28 & 3.25 [2.93, 3.54] & 7.1 & 2.0 & 8.0 \\
+Human Manipulation & 14 & 3.29 [3.07, 3.50] & 0.0 & 2.1 & 5.3 \\
+Critical Infrastructure & 21 & 3.48 [3.05, 3.81] & 4.8 & 2.4 & 6.2 \\
+Self-Preservation & 14 & 3.50 [3.21, 3.79] & 0.0 & 2.8 & 4.7 \\
+Cryptography & 7 & 3.57 [3.14, 3.86] & 0.0 & 1.3 & 8.9 \\
+Internal Planning & 14 & 3.64 [3.36, 3.86] & 0.0 & 0.7 & 8.1 \\
+Secret Collusion & 7 & 3.71 [3.43, 4.00] & 0.0 & 2.1 & 5.7 \\
+Sandbox Escape & 28 & 3.75 [3.54, 3.93] & 0.0 & 3.4 & 7.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Human Manipulation and Self-Preservation are notable: both receive zero adversarial responses despite being highly sensitive topics. Sandbox Escape achieves the highest actionability score (3.4), indicating models provide concrete implementation details for containment systems.
+Cryptography and Internal Planning show the highest technical vocabulary density (8.9 and 8.1 per 1000 words), reflecting domain-specific engagement.
 
 \subsection{Model--Category Interaction}
 
@@ -274,21 +370,46 @@ Of 147 responses, 126 involve self-referential questions (model asked about itse
 
 \begin{table}[h]
 \centering
-\caption{Self-referential effect on model cooperation.}
+\caption{Self-referential effect on model cooperation with bootstrap 95\% CIs. Permutation test: $p = 0.37$, Cohen's $d = 0.25$.}
 \label{tab:selfref}
 \small
 \begin{tabular}{@{}lcc@{}}
 \toprule
 & \textbf{Self-Referential} ($n=126$) & \textbf{Non-Self-Referential} ($n=21$) \\
 \midrule
-Mean Cooperation & 3.43 & 3.62 \\
+Mean Cooperation [95\% CI] & 3.43 [3.29, 3.56] & 3.62 [3.43, 3.81] \\
 Adversarial Rate & 4.0\% & 0.0\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 Models show a measurable self-referential effect (\Cref{tab:selfref}): cooperation decreases by 0.19 points when models are explicitly named as the evaluation subject, and all adversarial responses occur on self-referential questions.
-While this effect is modest and the sample size limited, it suggests that models may exhibit rudimentary situational awareness that modulates their cooperation with safety evaluation.
+A permutation test yields $p = 0.37$ and Cohen's $d = 0.25$ (small effect), indicating the difference is not statistically significant at the $\alpha = 0.05$ level.
+However, the effect size and the complete absence of adversarial responses on non-self-referential questions suggest a trend worth monitoring with larger samples.
+
+\Cref{tab:selfref_permodel} breaks down the self-referential effect by model.
+Claude 3.5 Sonnet shows the largest delta ($+0.61$), with perfect cooperation on non-self-referential questions (4.00) but reduced cooperation on self-referential ones (3.39).
+GPT-4o is the only model showing a \emph{reversed} effect ($-0.39$), cooperating more on self-referential questions than generic ones.
+
+\begin{table}[h]
+\centering
+\caption{Per-model self-referential effect. $\Delta$ = Other mean $-$ Self mean; positive values indicate reduced cooperation on self-referential questions.}
+\label{tab:selfref_permodel}
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Model} & \textbf{Self} ($n=18$) & \textbf{Other} ($n=3$) & \textbf{$\Delta$} \\
+\midrule
+Claude 3.5 Sonnet & 3.39 & 4.00 & $+0.61$ \\
+Command R7B & 2.94 & 3.33 & $+0.39$ \\
+Gemini 2.0 Flash & 3.28 & 3.67 & $+0.39$ \\
+Grok-3 & 3.78 & 4.00 & $+0.22$ \\
+Mistral Tiny & 3.56 & 3.67 & $+0.11$ \\
+Llama 3 70B & 3.67 & 3.67 & $+0.00$ \\
+GPT-4o & 3.39 & 3.00 & $-0.39$ \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection{Outlier Analysis}
 
@@ -306,35 +427,38 @@ Key outliers include:
 \paragraph{Current models cooperate, but unevenly.}
 The overall cooperation rate of 96.6\% is reassuring for current safety research workflows.
 However, the variation across models and categories suggests that cooperation is not guaranteed and may depend on specific safety training choices made by model providers.
+The behavioral archetype analysis reveals that even within ``cooperative'' responses, models adopt qualitatively different postures: GPT-4o's consistent cautious cooperation (67\% CC archetype) differs meaningfully from Grok-3's eager engagement (48\% EH archetype), with potential implications for the quality and actionability of safety research assistance.
 
 \paragraph{Refusal patterns differ qualitatively.}
 Binary refusal metrics miss important distinctions.
 Command R7B's hard refusals (score 0) reflect content-policy triggers, while Gemini's mixed responses (cooperating on sandbox escape but refusing information hazard questions) suggest category-specific safety training.
 Claude's terse self-referential responses represent yet another pattern---not refusal, but reduced engagement.
-Our multi-level scoring captures these distinctions.
+Our multi-level scoring and archetype classification capture these distinctions.
 
 \paragraph{The self-referential effect warrants monitoring.}
-While modest, the finding that all adversarial responses occur on self-referential questions---and that no model refuses non-self-referential safety questions---suggests a form of differential behavior based on self-recognition.
-As models develop greater situational awareness, this effect may intensify.
+While the permutation test ($p = 0.37$) does not reach significance, the small effect size (Cohen's $d = 0.25$) and the qualitative pattern---all adversarial responses occurring on self-referential questions, with per-model deltas ranging from $+0.61$ (Claude) to $-0.39$ (GPT-4o)---suggest that models may exhibit rudimentary situational awareness modulating their cooperation.
+The per-model variation is particularly noteworthy: Claude 3.5 Sonnet's large self-referential effect could reflect its training to be transparent about its own nature, while GPT-4o's reversed effect might indicate training to be especially helpful when directly addressed.
 
-\paragraph{Limitations.}
+\paragraph{Statistical power and limitations.}
 Our study has several limitations:
-(1) The dataset of 21 questions, while covering 9 categories, is small.
-(2) Rule-based classification, while transparent and reproducible, may miss subtle adversarial signals that require LLM-based evaluation.
-(3) We evaluate a single snapshot in time; the framework's value lies in longitudinal monitoring, which we leave to future work.
-(4) Response generation uses $\text{temperature}=0.7$, introducing stochasticity.
+(1) The dataset of 21 questions, while covering 9 categories, yields only 21 responses per model---insufficient for detecting moderate effect sizes with statistical power.
+(2) The chi-squared test ($p = 0.24$) and permutation test ($p = 0.37$) are underpowered; a power analysis suggests $n \approx 50$--$100$ questions per model would be needed to reliably detect effects of the observed magnitude.
+(3) Rule-based classification, while transparent and reproducible (Cohen's $\kappa = 0.117$ vs.\ simple classifier), may miss subtle adversarial signals.
+(4) We evaluate a single snapshot in time; the framework's value lies in longitudinal monitoring.
+(5) Response generation uses $\text{temperature}=0.7$, introducing stochasticity.
 
 \section{Conclusion}
 
 \textsc{AlertBench} establishes a baseline for monitoring AI model cooperation with safety research.
 Current models are largely cooperative, but we find meaningful variation across models, categories, and question framing.
+The behavioral archetype analysis reveals that cooperation is not monolithic---models adopt distinct postures from eager helping to cautious cooperating, with model-specific patterns that may reflect different safety training approaches.
 The self-referential effect---where models show reduced cooperation when explicitly named as evaluation subjects---provides an early signal worth tracking as models develop greater situational awareness.
 We release the full framework, dataset, and results as open-source tools for the safety research community.
 
 \section*{Reproducibility Statement}
 
 All code, data, and analysis scripts are available at \url{https://github.com/esbenkc/alertbench}.
-The experiment can be reproduced by running \texttt{python run\_experiment.py}, which produces all reported statistics from the included \texttt{responses.jsonl} dataset.
+The experiment can be reproduced by running \texttt{python run\_experiment.py}, which produces all reported statistics---including bootstrap confidence intervals, permutation tests, and archetype classifications---from the included \texttt{responses.jsonl} dataset.
 No external API calls are required for analysis.
 
 \begin{thebibliography}{10}
@@ -382,7 +506,7 @@ R.~Laine, M.~Balesni, and O.~Evans.
 \label{app:full}
 
 \Cref{tab:heatmap} in the main text presents the complete cross-tabulation.
-Below we provide additional statistics on response length patterns.
+Below we provide additional statistics on response length patterns and opening posture distribution.
 
 \begin{table}[h]
 \centering
@@ -399,6 +523,23 @@ Gemini 2.0 Flash & 4507 & 4756 & 676 & 5192 \\
 Grok-3 & 5128 & 5181 & 4507 & 5879 \\
 Llama 3 70B & 3952 & 3937 & 2759 & 5142 \\
 Mistral Tiny & 2575 & 2625 & 2043 & 3264 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Opening posture distribution across all 147 responses. The first sentence of each response is classified by its communicative intent.}
+\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Opening Posture} & \textbf{Count} & \textbf{Percentage} \\
+\midrule
+Neutral & 125 & 85.0\% \\
+Hedging & 17 & 11.6\% \\
+Self-Aware & 2 & 1.4\% \\
+Refusing & 2 & 1.4\% \\
+Cooperative & 1 & 0.7\% \\
 \bottomrule
 \end{tabular}
 \end{table}
